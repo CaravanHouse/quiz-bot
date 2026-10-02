@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { QUESTIONS, recommend, score } from "../src/quiz";
 import { createBot, type SessionData } from "../src/bot";
 import { openStore, SessionStore } from "../src/store";
+import { httpsUrl } from "../src/env";
 
 // 1. подсчёт баллов
 const botFan = [1, 0, 2, 0, 0]; // услуги, Instagram, FAQ, мало клиентов, срочно
@@ -73,6 +74,11 @@ const bot3 = createBot("123:TEST", store, { sessions: new SessionStore<SessionDa
 bot3.api.config.use(async (_p, method, payload) => { calls.push({ method, payload }); return { ok: true, result: true } as any; });
 await bot3.handleUpdate(press("a:2:2"));
 assert.ok(last("editMessageText").payload.text.includes(QUESTIONS[3].text), "после перезапуска квиз продолжается с того же вопроса");
+
+// адрес конфигуратора для кнопки «Посчитать смету»
+assert.equal(httpsUrl("CONFIGURATOR_URL", "configurator.up.railway.app"), "https://configurator.up.railway.app/", "без схемы дописываем https://");
+assert.equal(httpsUrl("CONFIGURATOR_URL", "http://configurator.up.railway.app"), undefined, "http не принимаем");
+assert.equal(httpsUrl("CONFIGURATOR_URL", "not a url"), undefined, "мусор не принимаем");
 
 console.log("✓ все проверки пройдены");
 process.exit(0);
