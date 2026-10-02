@@ -1,8 +1,8 @@
-import { Bot, Context, InlineKeyboard, Keyboard, session, type SessionFlavor } from "grammy";
+import { Bot, Context, InlineKeyboard, Keyboard, session, type SessionFlavor, type StorageAdapter } from "grammy";
 import { KIND_INFO, QUESTIONS, progress, recommend, resultDays, resultKey, resultTitle } from "./quiz";
 import type { Store } from "./store";
 
-interface SessionData { step: number; answers: number[]; resultKey?: string; resultTitle?: string; awaitingContact: boolean }
+export interface SessionData { step: number; answers: number[]; resultKey?: string; resultTitle?: string; awaitingContact: boolean }
 export type MyContext = Context & SessionFlavor<SessionData>;
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -37,10 +37,10 @@ function resultView(answers: number[], configuratorUrl?: string) {
   return { text, kb, kinds };
 }
 
-export function createBot(token: string, store: Store, opts: { adminChatId?: string; configuratorUrl?: string; botInfo?: ConstructorParameters<typeof Bot>[1] extends infer O ? (O extends { botInfo?: infer B } ? B : never) : never }) {
+export function createBot(token: string, store: Store, opts: { adminChatId?: string; configuratorUrl?: string; sessions?: StorageAdapter<SessionData>; botInfo?: ConstructorParameters<typeof Bot>[1] extends infer O ? (O extends { botInfo?: infer B } ? B : never) : never }) {
   const bot = new Bot<MyContext>(token, opts.botInfo ? { botInfo: opts.botInfo } : undefined);
   const isAdmin = (chatId?: number) => !!opts.adminChatId && String(chatId) === String(opts.adminChatId);
-  bot.use(session({ initial: fresh }));
+  bot.use(session({ initial: fresh, storage: opts.sessions }));
 
   bot.command("start", async (ctx) => {
     ctx.session = fresh();

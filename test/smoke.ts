@@ -3,8 +3,8 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { QUESTIONS, recommend, score } from "../src/quiz";
-import { createBot } from "../src/bot";
-import { openStore } from "../src/store";
+import { createBot, type SessionData } from "../src/bot";
+import { openStore, SessionStore } from "../src/store";
 
 // 1. подсчёт баллов
 const botFan = [1, 0, 2, 0, 0]; // услуги, Instagram, FAQ, мало клиентов, срочно
@@ -58,6 +58,21 @@ assert.ok(toAdmin.payload.text.includes("@alisher") && toAdmin.payload.text.incl
 calls.length = 0;
 await bot.handleUpdate({ ...msg({ text: "/stats", entities: [{ type: "bot_command", offset: 0, length: 6 }] }) });
 assert.equal(calls.length, 0, "/stats молчит для обычного пользователя");
+
+// 5. сессия переживает перезапуск бота
+const sessFile = join(mkdtempSync(join(tmpdir(), "quiz-sess-")), "s.json");
+const botInfo = { id: 123, is_bot: true, first_name: "t", username: "t_bot", can_join_groups: true, can_read_all_group_messages: false, supports_inline_queries: false, can_connect_to_business: false, has_main_web_app: false } as any;
+const before = new SessionStore<SessionData>(sessFile);
+const bot2 = createBot("123:TEST", store, { sessions: before, botInfo });
+bot2.api.config.use(async (_p, method, payload) => { calls.push({ method, payload }); return { ok: true, result: true } as any; });
+await bot2.handleUpdate(press("q:start"));
+await bot2.handleUpdate(press("a:0:1"));
+await bot2.handleUpdate(press("a:1:0"));
+before.flush();
+const bot3 = createBot("123:TEST", store, { sessions: new SessionStore<SessionData>(sessFile), botInfo });
+bot3.api.config.use(async (_p, method, payload) => { calls.push({ method, payload }); return { ok: true, result: true } as any; });
+await bot3.handleUpdate(press("a:2:2"));
+assert.ok(last("editMessageText").payload.text.includes(QUESTIONS[3].text), "после перезапуска квиз продолжается с того же вопроса");
 
 console.log("✓ все проверки пройдены");
 process.exit(0);
