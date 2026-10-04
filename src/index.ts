@@ -15,6 +15,8 @@ const bot = createBot(token, store, {
   adminChatId: process.env.ADMIN_CHAT_ID || undefined,
   // кривой адрес отключаем: иначе Telegram отклонил бы кнопку, и экран результата квиза не показался бы
   configuratorUrl: httpsUrl("CONFIGURATOR_URL", process.env.CONFIGURATOR_URL),
+  // CONTACT_URL: куда ведёт «Обсудить проект» (бот заказов). Без него бот сам собирает номер и шлёт админу
+  contactUrl: httpsUrl("CONTACT_URL", process.env.CONTACT_URL),
   sessions,
 });
 bot.catch((e) => console.error("Ошибка бота:", e.message));

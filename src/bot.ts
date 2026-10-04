@@ -15,7 +15,7 @@ function questionView(step: number) {
   return { text: `<code>${progress(step)}</code>\n\n<b>${q.text}</b>`, kb };
 }
 
-function resultView(answers: number[], configuratorUrl?: string) {
+function resultView(answers: number[], configuratorUrl?: string, contactUrl?: string) {
   const { kinds } = recommend(answers);
   const parts = kinds.map((k) => KIND_INFO[k]);
   const text = [
@@ -31,13 +31,14 @@ function resultView(answers: number[], configuratorUrl?: string) {
     "",
     `⏱ Ориентировочный срок: ~${resultDays(kinds)} дн.`,
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n");
-  const kb = new InlineKeyboard().text("📩 Обсудить проект", "lead").row();
+  // contactUrl: «Обсудить проект» ведёт в бота заказов компании, а не собирает номер здесь
+  const kb = (contactUrl ? new InlineKeyboard().url("📩 Обсудить проект", contactUrl) : new InlineKeyboard().text("📩 Обсудить проект", "lead")).row();
   if (configuratorUrl) kb.url("🧮 Посчитать смету", configuratorUrl).row();
   kb.text("🔁 Пройти заново", "q:start");
   return { text, kb, kinds };
 }
 
-export function createBot(token: string, store: Store, opts: { adminChatId?: string; configuratorUrl?: string; sessions?: StorageAdapter<SessionData>; botInfo?: ConstructorParameters<typeof Bot>[1] extends infer O ? (O extends { botInfo?: infer B } ? B : never) : never }) {
+export function createBot(token: string, store: Store, opts: { adminChatId?: string; configuratorUrl?: string; contactUrl?: string; sessions?: StorageAdapter<SessionData>; botInfo?: ConstructorParameters<typeof Bot>[1] extends infer O ? (O extends { botInfo?: infer B } ? B : never) : never }) {
   const bot = new Bot<MyContext>(token, opts.botInfo ? { botInfo: opts.botInfo } : undefined);
   const isAdmin = (chatId?: number) => !!opts.adminChatId && String(chatId) === String(opts.adminChatId);
   bot.use(session({ initial: fresh, storage: opts.sessions }));
@@ -71,7 +72,7 @@ export function createBot(token: string, store: Store, opts: { adminChatId?: str
       const v = questionView(ctx.session.step);
       await ctx.editMessageText(v.text, { parse_mode: "HTML", reply_markup: v.kb });
     } else {
-      const r = resultView(ctx.session.answers, opts.configuratorUrl);
+      const r = resultView(ctx.session.answers, opts.configuratorUrl, opts.contactUrl);
       ctx.session.resultKey = resultKey(r.kinds);
       ctx.session.resultTitle = resultTitle(r.kinds);
       store.data.finished += 1;
@@ -84,6 +85,11 @@ export function createBot(token: string, store: Store, opts: { adminChatId?: str
 
   bot.callbackQuery("lead", async (ctx) => {
     if (!ctx.session.resultKey) return ctx.answerCallbackQuery({ text: "Сначала пройдите тест" });
+    // старые сообщения с кнопкой-колбэком: тоже отправляем в бота заказов
+    if (opts.contactUrl) {
+      await ctx.answerCallbackQuery();
+      return ctx.reply("Напишите нам — обсудим проект и назовём стоимость:", { reply_markup: new InlineKeyboard().url("📩 Обсудить проект", opts.contactUrl) });
+    }
     ctx.session.awaitingContact = true;
     await ctx.answerCallbackQuery();
     await ctx.reply("Оставьте номер, и мы свяжемся, чтобы обсудить проект. Нажмите кнопку ниже 👇", {

@@ -80,5 +80,19 @@ assert.equal(httpsUrl("CONFIGURATOR_URL", "configurator.up.railway.app"), "https
 assert.equal(httpsUrl("CONFIGURATOR_URL", "http://configurator.up.railway.app"), undefined, "http не принимаем");
 assert.equal(httpsUrl("CONFIGURATOR_URL", "not a url"), undefined, "мусор не принимаем");
 
+// 5. CONTACT_URL: «Обсудить проект» ведёт в бота заказов, номер здесь не собираем и админу не пишем
+const c5: { method: string; payload: any }[] = [];
+const store5 = openStore(join(mkdtempSync(join(tmpdir(), "quiz-")), "q5.json"));
+const bot5 = createBot("123:TEST", store5, { adminChatId: "555", contactUrl: "https://t.me/CaravanHousebot", botInfo });
+bot5.api.config.use(async (_p, method, payload) => { c5.push({ method, payload }); return { ok: true, result: { message_id: 1, date: 0, chat: { id: 1, type: "private" } } } as any; });
+await bot5.handleUpdate(press("q:start"));
+for (const [q, o] of botFan.entries()) await bot5.handleUpdate(press(`a:${q}:${o}`));
+const kb5 = JSON.stringify([...c5].reverse().find((c) => c.method === "editMessageText")!.payload.reply_markup);
+assert.ok(kb5.includes("https://t.me/CaravanHousebot") && !kb5.includes('"lead"'), "кнопка ведёт в бота заказов");
+await bot5.handleUpdate(press("lead")); // кнопка из старого сообщения
+const r5 = JSON.stringify([...c5].reverse().find((c) => c.method === "sendMessage")!.payload.reply_markup);
+assert.ok(r5.includes("https://t.me/CaravanHousebot") && !r5.includes("request_contact"), "старая кнопка тоже ведёт в бота заказов");
+assert.equal(c5.filter((c) => c.method === "sendMessage" && String(c.payload.chat_id) === "555").length, 0, "админу ничего не пришло");
+
 console.log("✓ все проверки пройдены");
 process.exit(0);
