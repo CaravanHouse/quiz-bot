@@ -57,7 +57,7 @@ export const KIND_INFO: Record<Kind, { title: string; pitch: string; includes: s
   },
 };
 
-export const emptyScores = (): Scores => ({ bot: 0, site: 0, app: 0 });
+const emptyScores = (): Scores => ({ bot: 0, site: 0, app: 0 });
 
 export function score(answers: number[]): Scores {
   const s = emptyScores();
